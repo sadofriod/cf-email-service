@@ -8,6 +8,12 @@
 
 所有模板禁止形容词堆砌、emoji、追踪像素和附件；链接替代附件。纯文本版与 HTML 内容等价。
 
+## 领域参数与目录
+
+`cold-outreach`、`sample-delivery`、`report-delivery` 接受可选顶层 `domain` 参数，缺省为 `energy-storage`。可选 id：`energy-storage`（储能开发商/IPP 的供应链与政策岗、45X 顾问与律所、卖方分析师）、`semiconductor-controls`（出口管制/贸易合规律师、半导体设备与材料分析师、跨国采购合规岗）、`web3-security`（协议方安全负责人、审计公司合伙人与商务、基金风控）、`clinical-pharma`（BD/licensing 团队、医药分析师、注册事务顾问）、`agent-infra`（平台/DevRel 团队、开源项目维护者、企业 AI 基建选型负责人）。
+
+`GET /templates/domains` 返回领域的标签、买方、证据形态、触发事件和示例结论，不返回完整文案。未知领域返回 `400 {"code":"unknown_domain","domain":"..."}`。详情见 [DOMAINS.md](DOMAINS.md)。
+
 ## `cold-outreach`
 
 用途：SOUL.md 的证据型冷触达主线，针对对方近期动作发送首封样例。
@@ -18,7 +24,7 @@
 | `entity`, `finding`, `sourceType`, `page` | 可核验发现及出处 |
 | `sampleUrl`, `senderName`, `senderLine` | 样例与三行内签名 |
 
-主题：英文用 `subjectVariant` 选 S1/S2/S3，默认 S2；中文固定“45X/PFE 底稿：追一层，带页码”。上限英文 120 词、中文 200 字。
+主题：按 `domain` 的 `subjectHints` 用 `subjectVariant` 选 S1/S2/S3，默认 S2。上限英文 120 词、中文 200 字；证据与未覆盖范围的措辞同样随领域变化。
 
 ## `followup-new-fact`
 
@@ -50,7 +56,7 @@
 | `sourceType`, `page` | 其中一个可核验锚点 |
 | `senderName`, `senderLine` | 签名 |
 
-主题为 `2-page sample`，上限 90 词；说明一条结论、三个锚点和一张图，不附文件。
+主题为 `2-page sample`，上限 90 词；说明一条结论、三个锚点和一张图，不附文件。`domain` 决定证据说明句。
 
 ## `report-delivery`
 
@@ -62,7 +68,7 @@
 | `docCount`, `anchorCount`, `reportUrl`, `sampleUrl` | 覆盖、锚点与链接 |
 | `versionDate`, `senderName`, `senderLine` | 版本与签名 |
 
-主题为 `Report delivery: {target}`。包含 30 秒自检、五个文件用途、公开信息声明和版本/语料截止日；禁止夸张描述。
+主题为 `Report delivery: {target}`。正文首句使用 `domain` 对应的领域名；其余包含 30 秒自检、五个文件用途、公开信息声明和版本/语料截止日；禁止夸张描述。
 
 ## `kickoff-scope`
 

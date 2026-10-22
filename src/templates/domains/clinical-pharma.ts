@@ -1,0 +1,8 @@
+import type { DomainPack } from './types';
+
+export const clinicalPharma: DomainPack = {
+  id: 'clinical-pharma', label: { en: 'Clinical and regulatory', zh: '创新药临床与注册' }, buyerPersona: 'BD/licensing 团队、医药分析师、注册事务顾问。',
+  evidenceTypes: ['临床试验登记（NCT）条目', '说明书与审批文件章节', '年报研发管线页', '会议摘要与壁报'], triggerTypes: ['ASCO/ESMO 摘要发布', 'license-in/out 公告', '注册岗招聘', '竞品读出数据'],
+  sampleFindings: [{ finding: 'the Phase 3 registry lists a primary endpoint the conference abstract does not report', sourceType: 'NCT05821472 outcome measures', page: '1' }, { finding: 'the licensed asset patent expiry precedes the stated exclusivity date by four years', sourceType: 'annual report', page: '88' }, { finding: 'the comparator arm dose differs from the approved label dose', sourceType: 'prescribing information', page: '3' }],
+  copy: { en: { evidenceLine: 'Every claim cites the registry entry, label section, or filing page, and each brief ends with the endpoints this data cannot settle.', coverageLine: 'the endpoints this data cannot settle', researchLine: 'I spent the last two weeks on the registry entries, labels and filings around {entity}.', cite: { en: 'Source: {source}, {page}', zh: '出处：{source}，{page}' }, deliveryLine: 'The full brief extends the trial coverage and gives you HTML, PDF, and registry-level evidence records.', subjectHints: ['Your Phase 3 readout: the endpoint it skips', 'Exclusivity date vs patent expiry', '2-page sample: trial data with citations'] }, zh: { evidenceLine: '每条结论都标到登记号、说明书章节或披露页，最后一节写“这批数据回答不了的终点”。', coverageLine: '这批数据回答不了的终点', researchLine: '过去两周我把 {entity} 的登记条目、说明书和披露过了一遍。', cite: { en: 'Source: {source}, {page}', zh: '出处：{source}，{page}' }, subjectHints: ['你们的 III 期数据，少报了一个终点', '独占期与专利到期的四年差', '2 页样例：临床试验数据，逐条带出处'] } },
+};

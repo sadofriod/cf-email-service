@@ -1,0 +1,14 @@
+Jordan Lee,
+
+You asked for the 2-page sample, so here it is.
+
+It contains one finding: two subsidiaries appear in the Entity List footnote but not in the group structure chart. It includes three anchors and one chart. One anchor is Federal Register 91 FR 14820, p.7.
+
+Every claim cites the rule paragraph or filing line it came from, and each brief ends with the licence assumptions I could not verify.
+
+The full brief extends the rule coverage and gives you HTML, PDF, and the clause-level evidence records.
+
+https://example.com/sample-2p.pdf
+
+Sample Sender
+Supply-chain research · example.com

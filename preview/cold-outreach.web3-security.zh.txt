@@ -1,0 +1,14 @@
+Jordan Lee，
+
+你 August 那条关于 the post-mortem on the sequencer incident 的帖子，是我写这封邮件的原因。
+
+过去两周我把 Meridian Vault 的审计、治理提案和链上交易过了一遍。有一处和主流说法对不上：the pause function cited in the audit is guarded by a 2-of-3 multisig whose signers overlap with the deployer。出处：audit report，4.3。
+
+每条结论都能点回对应的交易、审计章节或提案，最后一节写“我无法排除的攻击路径”。
+
+2 页样例在这里，不用注册：https://example.com/sample-2p.pdf
+
+有用的话我把完整版发你；没用的话，样例留着。
+
+Sample Sender
+Supply-chain research · example.com

@@ -70,3 +70,13 @@
 - 中文模板 `lang="zh-CN"` + 字体栈加入 PingFang SC / Hiragino Sans GB / Microsoft YaHei / Noto Sans CJK SC，避免拉丁字体渲染中文。
 - 链接样式统一 `color:#111;text-decoration:underline`（不再用默认蓝色）。
 - 最终版本：`975a9465-a21a-4dbe-82f2-af729dcba722`。
+
+## 领域包（2026-10-22 追加）
+
+- 5 个领域包：`energy-storage`（储能/锂电）、`semiconductor-controls`（半导体出口管制）、`web3-security`（协议安全）、`clinical-pharma`（临床与注册）、`agent-infra`（Agent/MCP 工具链）。
+- 每个包提供：`label`、`buyerPersona`（谁付费）、`evidenceTypes`（该领域"可回溯证据"是什么）、`triggerTypes`（什么算触发事件）、3 条 `sampleFindings`、以及中英文 `copy`：`researchLine`（我做的功课，用该领域证据载体词汇）、`evidenceLine`（每条结论带出处的说法）、`coverageLine`（未覆盖什么）、`cite`（出处句式：页/条文§/章节/登记号/文件路径）、`subjectHints`（3 个主题行）、`deliveryLine`（sample-delivery 用）。
+- 模板接入：`cold-outreach` / `sample-delivery` / `report-delivery` 支持 `domain`（默认 `energy-storage`）；未知领域 → `400 unknown_domain`。
+- 新端点：`GET /templates/domains`（只出元数据，不出 copy）。
+- 预览：`node scripts/preview-templates.mjs` → 27 组（冷邮件 5 领域 × 2 语言 + 其余模板），`preview/index.html` 按领域分组。
+- 实测发送（非默认领域）：web3 en `<6NgdWn47H0MYxI2kCD4dZHf5rmjg5zgWyBT0@ashesborn.cloud>`、agent-infra zh `<cJdAtC854op2o36Bk90diTAXmRfRAN1ABaV1@ashesborn.cloud>`。
+- 最终版本：`18f72d71-d955-4215-9fb9-9cae6a2887f9`，包体 51.20 KiB / gzip 15.09 KiB。

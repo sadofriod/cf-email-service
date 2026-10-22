@@ -14,6 +14,7 @@ import type { AddressLike, Env, SendRequest } from './types';
 import { estimateSize, MAX_MESSAGE_BYTES, validateSendRequest } from './lib/validate';
 import { mapBindingError, mapRestError, type MappedError } from './lib/errors';
 import { getTemplate, listTemplates } from './templates';
+import { DEFAULT_DOMAIN, getDomain, listDomains } from './templates/domains';
 import type { TemplateDefinition } from './templates/types';
 
 const REST_ENDPOINT = (accountId: string) =>
@@ -223,7 +224,7 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
 
 type TemplateRequestResult =
   | { ok: true; value: unknown }
-  | { ok: false; status: number; error: { code: string; field?: string } };
+  | { ok: false; status: number; error: { code: string; field?: string; domain?: unknown } };
 
 function isMissingField(data: Record<string, unknown>, field: string): boolean {
   const value = data[field];
@@ -243,18 +244,22 @@ function renderTemplateRequest(body: unknown): TemplateRequestResult {
     return { ok: false, status: 400, error: { code: 'template_field_missing', field: 'data' } };
   }
   const fields = data as Record<string, unknown>;
+  const requestedDomain = request.domain ?? fields.domain;
+  if (requestedDomain !== undefined && (typeof requestedDomain !== 'string' || !getDomain(requestedDomain))) {
+    return { ok: false, status: 400, error: { code: 'unknown_domain', domain: requestedDomain } };
+  }
   for (const field of template.requiredFields) {
     if (isMissingField(fields, field)) return { ok: false, status: 400, error: { code: 'template_field_missing', field } };
   }
   if (template.id === 'kickoff-scope' && (!Array.isArray(fields.threeQuestions) || fields.threeQuestions.length !== 3)) {
     return { ok: false, status: 400, error: { code: 'template_field_missing', field: 'threeQuestions' } };
   }
-  const rendered = template.render(fields);
+  const rendered = template.render({ ...fields, domain: requestedDomain ?? fields.domain ?? DEFAULT_DOMAIN });
   return { ok: true, value: { ...request, to: request.to ?? fields.to, subject: rendered.subject, html: rendered.html, text: rendered.text } };
 }
 
 function templateSummary(template: TemplateDefinition): Omit<TemplateDefinition, 'render' | 'sample' | 'optionalFields'> {
-  return { id: template.id, description: template.description, locales: template.locales, requiredFields: template.requiredFields };
+  return { id: template.id, description: template.description, locales: template.locales, requiredFields: template.requiredFields, domains: template.domains };
 }
 
 async function handlePreview(request: Request, env: Env, id: string): Promise<Response> {
@@ -267,9 +272,12 @@ async function handlePreview(request: Request, env: Env, id: string): Promise<Re
   try { body = await request.json(); } catch { return fail({ status: 400, code: 'invalid_json', message: 'request body must be valid JSON' }, cors); }
   const data = body && typeof body === 'object' && !Array.isArray(body) && 'data' in body
     ? (body as Record<string, unknown>).data : body;
-  const result = renderTemplateRequest({ template: id, data });
+  const domain = body && typeof body === 'object' && !Array.isArray(body)
+    ? (body as Record<string, unknown>).domain ?? (data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>).domain : undefined)
+    : undefined;
+  const result = renderTemplateRequest({ template: id, data, domain });
   if (!result.ok) return json(result.error, result.status, cors);
-  const rendered = template.render(data as Record<string, unknown>);
+  const rendered = template.render({ ...(data as Record<string, unknown>), domain: domain ?? DEFAULT_DOMAIN });
   return json(rendered, 200, cors);
 }
 
@@ -303,6 +311,12 @@ export default {
       const authFailure = requireAuthorization(request, env, cors);
       if (authFailure) return authFailure;
       return json({ templates: listTemplates().map(templateSummary) }, 200, cors);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/templates/domains') {
+      const authFailure = requireAuthorization(request, env, cors);
+      if (authFailure) return authFailure;
+      return json({ domains: listDomains().map(({ id, label, buyerPersona, evidenceTypes, triggerTypes, sampleFindings }) => ({ id, label, buyerPersona, evidenceTypes, triggerTypes, sampleFindings })) }, 200, cors);
     }
 
     const previewMatch = url.pathname.match(/^\/templates\/([^/]+)\/preview$/);

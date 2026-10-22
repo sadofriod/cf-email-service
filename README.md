@@ -115,7 +115,9 @@ curl -X POST https://cf-email-service.<子域>.workers.dev/send \
 
 ## 邮件模板
 
-模板接口同样使用 `Bearer SEND_API_KEY`：`GET /templates` 列出模板，`POST /templates/:id/preview` 仅渲染不发送，`POST /send` 传入 `template` 和 `data` 会渲染后走同一发送校验链路。完整字段、主题规则和禁忌见 [docs/EMAIL-TEMPLATES.md](docs/EMAIL-TEMPLATES.md)。
+模板接口同样使用 `Bearer SEND_API_KEY`：`GET /templates` 列出模板（含支持的 `domains`），`GET /templates/domains` 列出领域元数据，`POST /templates/:id/preview` 仅渲染不发送，`POST /send` 传入 `template`、`data` 和可选顶层 `domain` 会渲染后走同一发送校验链路。完整字段、主题规则和禁忌见 [docs/EMAIL-TEMPLATES.md](docs/EMAIL-TEMPLATES.md)。
+
+领域参数仅适用于 `cold-outreach`、`sample-delivery`、`report-delivery`，默认 `energy-storage`。五个领域及买方：`energy-storage`（储能开发商/IPP 的供应链与政策岗、45X 顾问与律所、卖方分析师）、`semiconductor-controls`（出口管制/贸易合规律师、半导体设备与材料分析师、跨国采购合规岗）、`web3-security`（协议方安全负责人、审计公司合伙人与商务、基金风控）、`clinical-pharma`（BD/licensing 团队、医药分析师、注册事务顾问）、`agent-infra`（平台/DevRel 团队、开源项目维护者、企业 AI 基建选型负责人）。领域决定证据语义与文案，不改变邮件原则。详见 [docs/DOMAINS.md](docs/DOMAINS.md)。未知 id 返回 `400 {"code":"unknown_domain","domain":"..."}`。
 
 - `cold-outreach`：带触发事件、页码和两页样例的首封冷邮件。
 - `followup-new-fact`：第 3 天补充新事实的跟进。

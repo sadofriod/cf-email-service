@@ -1,0 +1,14 @@
+Jordan Lee,
+
+Your July post on the MCP server launch post is the reason I'm writing.
+
+I spent the last two weeks on the commits, release notes and docs around graphrag-ts. One thing that didn't match the consensus: the README benchmark was measured before the retrieval rewrite in v0.9. Source: release notes v0.9, benchmark.md.
+
+Every claim points at the commit, release note, or doc line it came from, and each brief ends with what the benchmark does not measure.
+
+Here's the 2-page sample, no signup: https://example.com/sample-2p.pdf
+
+If it's useful, I'll send the full one. If not, keep the sample.
+
+Sample Sender
+Supply-chain research · example.com

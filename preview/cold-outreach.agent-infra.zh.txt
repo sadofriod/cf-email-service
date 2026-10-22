@@ -1,0 +1,14 @@
+Jordan Lee，
+
+你 July 那条关于 the MCP server launch post 的帖子，是我写这封邮件的原因。
+
+过去两周我把 graphrag-ts 的 commit、release note 和文档过了一遍。有一处和主流说法对不上：the README benchmark was measured before the retrieval rewrite in v0.9。出处：release notes v0.9，benchmark.md。
+
+每条结论都指到具体的 commit、release note 或文档行，最后一节写“这个 benchmark 没测什么”。
+
+2 页样例在这里，不用注册：https://example.com/sample-2p.pdf
+
+有用的话我把完整版发你；没用的话，样例留着。
+
+Sample Sender
+Supply-chain research · example.com

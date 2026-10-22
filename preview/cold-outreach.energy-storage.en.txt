@@ -1,0 +1,14 @@
+Jordan Lee,
+
+Your September post on battery tariffs and 45X exposure is the reason I'm writing.
+
+I spent the last two weeks pulling every public filing I could find on Aurora Cell Systems and its upstream. One thing that didn't match the consensus: the anode supplier named in the 10-K is not the one doing graphitization — that work sits one layer down. Source: annual report, p.41.
+
+Every claim in my briefs carries a page-level citation, and every brief ends with a section on what the analysis did NOT cover.
+
+Here's the 2-page sample, no signup: https://example.com/sample-2p.pdf
+
+If it's useful, I'll send the full one. If not, keep the sample.
+
+Sample Sender
+Supply-chain research · example.com

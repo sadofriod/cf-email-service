@@ -1,0 +1,18 @@
+Example Client,
+
+The agent and mcp infrastructure brief on Example Cell Co. is at https://example.com/report.html. The one-page conclusion comes first.
+
+Pick any conclusion in the report. Within 30 seconds, you should be able to turn to the cited source page and read the original text. Every claim points at the commit, release note, or doc line it came from, and each brief ends with what the benchmark does not measure.
+
+report.html: offline main report with anchors.
+report.pdf: printable report with matching anchors.
+evidence.jsonl: one machine-readable record per anchor.
+sample-2p.pdf: two-page sales excerpt.
+README.txt: how to open and check the files.
+
+This is a compilation and citation of public information, not investment, legal, or tax advice.
+
+Version 2026-10-22. Corpus: 2025-01 to 2026-06; 24 documents; 31 anchors. Sample: https://example.com/sample-2p.pdf
+
+Sample Sender
+Supply-chain research · example.com

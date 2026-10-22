@@ -1,0 +1,14 @@
+Jordan Lee,
+
+You asked for the 2-page sample, so here it is.
+
+It contains one finding: the README benchmark was measured before the retrieval rewrite in v0.9. It includes three anchors and one chart. One anchor is release notes v0.9, p.benchmark.md.
+
+Every claim points at the commit, release note, or doc line it came from, and each brief ends with what the benchmark does not measure.
+
+The full brief extends the repo coverage and gives you HTML, PDF, and commit-level evidence records.
+
+https://example.com/sample-2p.pdf
+
+Sample Sender
+Supply-chain research · example.com

@@ -1,0 +1,14 @@
+Jordan Lee,
+
+Your August post on the post-mortem on the sequencer incident is the reason I'm writing.
+
+I went through the audits, governance proposals and on-chain transactions around Meridian Vault for the last two weeks. One thing that didn't match the consensus: the pause function cited in the audit is guarded by a 2-of-3 multisig whose signers overlap with the deployer. Source: audit report, 4.3.
+
+Every claim points at the transaction, audit section, or proposal it came from, and each brief ends with the attack paths I could not rule out.
+
+Here's the 2-page sample, no signup: https://example.com/sample-2p.pdf
+
+If it's useful, I'll send the full one. If not, keep the sample.
+
+Sample Sender
+Supply-chain research · example.com

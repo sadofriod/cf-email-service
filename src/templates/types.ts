@@ -13,6 +13,7 @@ export interface TemplateDefinition {
   locales: Locale[];
   requiredFields: string[];
   optionalFields?: string[];
+  domains?: string[];
   sample: Record<string, unknown>;
   render(data: Record<string, unknown>): RenderedEmail;
 }
