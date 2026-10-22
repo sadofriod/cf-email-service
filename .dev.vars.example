@@ -1,12 +1,14 @@
 # 本地开发用（wrangler dev 读取 .dev.vars，不提交到 git）
 # cp .dev.vars.example .dev.vars 然后改成本地值
 
-# 调用 POST /send 需要的共享密钥（生产用 wrangler secret put SEND_API_KEY）
-SEND_API_KEY=dev-secret-change-me
+# 调用 POST /send 的共享密钥：每个环境生成独立、随机、至少 32 字符的值
+# openssl rand -hex 32（生成 64 字符）；填入本地文件，生产用 wrangler secret put SEND_API_KEY
+# 不允许首尾空白、占位标记或单一字符重复；不要提交真实值或嵌入公开浏览器包
+SEND_API_KEY=
 
 DEFAULT_FROM=hello@ashesborn.cloud
 ALLOWED_ORIGINS=http://localhost:3000
 
 # REST 兜底（账号未开通 send_email binding 时使用）
-CF_ACCOUNT_ID=055d272c9a28dec6a903340e312864f6
+CF_ACCOUNT_ID=
 CF_API_TOKEN=

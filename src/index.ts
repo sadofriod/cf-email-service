@@ -45,19 +45,22 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
   };
 }
 
-/** 常量时间比较，避免密钥被计时侧信道猜测 */
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-function authorized(request: Request, env: Env): 'ok' | 'missing_config' | 'unauthorized' {
-  if (!env.SEND_API_KEY) return 'missing_config';
+async function authorized(request: Request, env: Env): Promise<'ok' | 'missing_config' | 'unauthorized'> {
+  const key = env.SEND_API_KEY;
+  if (!key || key !== key.trim() || key.length < 32 ||
+      /example|change[-_]?me|replace[-_]?me|your[-_]|placeholder|[<>]/i.test(key) ||
+      /^(.)\1+$/u.test(key)) return 'missing_config';
   const header = request.headers.get('Authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  return safeEqual(token, env.SEND_API_KEY) ? 'ok' : 'unauthorized';
+  const [scheme, token, ...extra] = header.split(/ +/);
+  if (scheme?.toLowerCase() !== 'bearer' || !token || extra.length ||
+      !new RegExp('^[A-Za-z0-9._~+/-]+=*$').test(token)) return 'unauthorized';
+  const encoder = new TextEncoder();
+  const [actual, expected] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(token)),
+    crypto.subtle.digest('SHA-256', encoder.encode(key)),
+  ]);
+  // Workers 原生扩展；比较固定长度摘要，不依赖 JS 循环的计时行为。
+  return crypto.subtle.timingSafeEqual(actual, expected) ? 'ok' : 'unauthorized';
 }
 
 /** 结构化发送日志：不打印密钥与正文 */
@@ -98,16 +101,20 @@ function toBindingMessage(msg: SendRequest): Record<string, unknown> {
 
 interface SendOutcome {
   via: 'binding' | 'rest';
-  messageId?: string;
-  delivery?: unknown;
+}
+
+class RestSendError extends Error {
+  constructor(readonly mapped: MappedError) {
+    super(mapped.message);
+  }
 }
 
 /** 走 Workers binding 发送 */
 async function sendViaBinding(env: Env, msg: SendRequest): Promise<SendOutcome> {
   if (!env.EMAIL) throw new Error('binding missing');
   const payload = toBindingMessage(msg) as unknown as Parameters<NonNullable<Env['EMAIL']>['send']>[0];
-  const res = await env.EMAIL.send(payload);
-  return { via: 'binding', messageId: res.messageId };
+  await env.EMAIL.send(payload);
+  return { via: 'binding' };
 }
 
 /** 走 REST API 发送（账号未开通 binding 或本地在 Node 里跑时的兜底） */
@@ -124,17 +131,17 @@ async function sendViaRest(env: Env, msg: SendRequest): Promise<SendOutcome> {
   const payload = (await res.json()) as { success?: boolean; result?: unknown; errors?: unknown };
   if (!res.ok || !payload.success) {
     const mapped = mapRestError(payload.errors);
-    throw Object.assign(new Error(mapped.message), { code: mapped.code, mapped });
+    throw new RestSendError(mapped);
   }
-  return { via: 'rest', delivery: payload.result };
+  return { via: 'rest' };
 }
 
 async function handleSend(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request, env);
-  const auth = authorized(request, env);
+  const auth = await authorized(request, env);
   if (auth === 'missing_config') {
     return fail(
-      { status: 500, code: 'server_misconfigured', message: 'SEND_API_KEY is not configured', hint: 'wrangler secret put SEND_API_KEY' },
+      { status: 500, code: 'server_misconfigured', message: 'SEND_API_KEY is missing or unsafe', hint: 'configure a unique random SEND_API_KEY of at least 32 characters' },
       cors,
     );
   }
@@ -188,23 +195,20 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
       level: 'info',
       via: outcome.via,
       recipients,
-      subject: msg.subject.slice(0, 60),
       elapsed_ms: Date.now() - started,
-      message_id: outcome.messageId ?? null,
     });
     return json(
-      { success: true, via: outcome.via, messageId: outcome.messageId, delivery: outcome.delivery },
+      { success: true, via: outcome.via },
       200,
       cors,
     );
   } catch (err) {
     const mapped =
-      (err as { mapped?: MappedError }).mapped ?? mapBindingError(err);
+      err instanceof RestSendError ? err.mapped : hasBinding ? mapBindingError(err) : mapRestError(undefined);
     logSend({
       level: 'error',
       via: hasBinding ? 'binding' : 'rest',
       recipients,
-      subject: msg.subject.slice(0, 60),
       elapsed_ms: Date.now() - started,
       code: mapped.code,
       message: mapped.message,
@@ -226,9 +230,6 @@ export default {
       return json(
         {
           ok: true,
-          binding: env.EMAIL ? 'available' : 'missing',
-          rest_fallback: Boolean(env.CF_ACCOUNT_ID && env.CF_API_TOKEN),
-          from: env.DEFAULT_FROM ?? null,
         },
         200,
         cors,

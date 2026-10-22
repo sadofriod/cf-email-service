@@ -8,13 +8,14 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
+    "test": "node --experimental-vm-modules --test tests/*.test.mjs",
     "dry": "wrangler deploy --dry-run --outdir dist",
     "send:rest": "node scripts/send-rest.mjs",
     "send:smtp": "node scripts/send-smtp.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1",
-    "nodemailer": "^6.9.16",
+    "nodemailer": "^10.2.0",
     "typescript": "^5.7.3",
     "wrangler": "^4.0.0"
   },
