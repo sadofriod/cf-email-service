@@ -79,18 +79,16 @@ const REST_MAP: Record<number, MappedError> = {
 
 export function mapBindingError(err: unknown): MappedError {
   const code = err && typeof err === 'object' ? (err as { code?: unknown }).code : undefined;
-  if (typeof code === 'string' && BINDING_MAP[code]) return BINDING_MAP[code];
-  const message = err instanceof Error ? err.message : String(err);
-  return { status: 500, code: typeof code === 'string' ? code : 'E_UNKNOWN', message };
+  if (typeof code === 'string' && Object.hasOwn(BINDING_MAP, code)) return BINDING_MAP[code]!;
+  return { status: 500, code: 'E_UNKNOWN', message: 'email service request failed' };
 }
 
 export function mapRestError(errors: unknown): MappedError {
   if (Array.isArray(errors) && errors.length > 0) {
-    const first = errors[0] as { code?: unknown; message?: unknown };
-    const num = typeof first.code === 'number' ? first.code : Number(first.code);
-    if (Number.isFinite(num) && REST_MAP[num]) return REST_MAP[num];
-    const message = typeof first.message === 'string' ? first.message : 'unknown REST error';
-    return { status: 502, code: `rest_${String(first.code ?? 'unknown')}`, message };
+    const first = errors[0];
+    const code: unknown = first && typeof first === 'object' ? first.code : undefined;
+    const num = typeof code === 'number' ? code : typeof code === 'string' && /^\d+$/.test(code) ? Number(code) : NaN;
+    if (Number.isFinite(num) && Object.hasOwn(REST_MAP, num)) return REST_MAP[num]!;
   }
   return { status: 502, code: 'rest_unknown', message: 'unknown REST error' };
 }
