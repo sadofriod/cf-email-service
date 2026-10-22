@@ -65,7 +65,9 @@ curl "${SERVICE_URL}/health"
 `SEND_API_KEY` 至少 32 字符，去除首尾空白后的值必须与原配置完全一致。
 拒绝已知占位标记（`example`、`change[-_]?me`、`replace[-_]?me`、`your[-_]`、
 `placeholder`、`<`、`>`）以及单一字符重复的值；不要通过填充示例值凑长度。
-`Authorization` 的 `Bearer` 认证方案不区分大小写，密钥本身必须精确匹配。
+密钥字符限于 ASCII 字母、数字、`.`、`_`、`~`、`+`、`/`、`-`，并可在末尾包含 `=`；
+这是 `Authorization: Bearer` token 所支持的字符集。现有密钥若包含其他字符，必须先生成符合规则的新密钥，
+并协调更新 Worker secret 与所有可信调用方配置；旧密钥无法通过请求头认证。`Bearer` 方案名不区分大小写，密钥本身必须精确匹配。
 
 **CORS 不是身份认证**：`ALLOWED_ORIGINS` 不能保护共享密钥，绝不能将其嵌入公开浏览器包。
 公开表单应由可信后端代理，并实施用户鉴权、限流等控制。

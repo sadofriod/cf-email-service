@@ -18,6 +18,7 @@ const REST_ENDPOINT = (accountId: string) =>
   `https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`;
 
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
+const BEARER_TOKEN_PATTERN = /^[A-Za-z0-9._~+/-]+=*$/;
 
 function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...extra } });
@@ -49,11 +50,11 @@ async function authorized(request: Request, env: Env): Promise<'ok' | 'missing_c
   const key = env.SEND_API_KEY;
   if (!key || key !== key.trim() || key.length < 32 ||
       /example|change[-_]?me|replace[-_]?me|your[-_]|placeholder|[<>]/i.test(key) ||
-      /^(.)\1+$/u.test(key)) return 'missing_config';
+      /^(.)\1+$/u.test(key) || !BEARER_TOKEN_PATTERN.test(key)) return 'missing_config';
   const header = request.headers.get('Authorization') ?? '';
   const [scheme, token, ...extra] = header.split(/ +/);
   if (scheme?.toLowerCase() !== 'bearer' || !token || extra.length ||
-      !new RegExp('^[A-Za-z0-9._~+/-]+=*$').test(token)) return 'unauthorized';
+      !BEARER_TOKEN_PATTERN.test(token)) return 'unauthorized';
   const encoder = new TextEncoder();
   const [actual, expected] = await Promise.all([
     crypto.subtle.digest('SHA-256', encoder.encode(token)),

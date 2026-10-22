@@ -32,10 +32,10 @@
 
 ```bash
 set -euo pipefail
-gitleaks git . --log-opts='--all --full-history' --redact=100 --no-banner
+gitleaks git . --log-opts='--all --full-history -m' --redact=100 --no-banner
 git log --all --format=raw | gitleaks stdin --redact=100 --no-banner
 git for-each-ref refs/tags --format='%(contents)' | gitleaks stdin --redact=100 --no-banner
-git log --all --full-history -p --format=fuller -- package-lock.json |
+git log --all --full-history -m -p --format=fuller -- package-lock.json |
   gitleaks stdin --redact=100 --no-banner
 # 非 bare 工作树还需以下两项；归档只含跟踪文件，包含隐藏文件。
 tree=$(mktemp -d)
@@ -81,6 +81,11 @@ chmod 700 "$SECURE_DIR"
 
 # 先确认 origin URL 不含嵌入式凭证
 git remote get-url origin > "$SECURE_DIR/origin.url"
+# 先备份并验证所有本地引用，防止后续强制 fetch 覆盖仅本地可达的提交
+git bundle create "$SECURE_DIR/pre-fetch-local.bundle" --all \
+  > "$SECURE_DIR/local-backup.log" 2>&1
+git bundle verify "$SECURE_DIR/pre-fetch-local.bundle" \
+  > "$SECURE_DIR/local-backup-verify.log" 2>&1
 git ls-remote --refs origin > "$SECURE_DIR/remote-before.tsv"
 git for-each-ref --format='%(objectname)%09%(refname)' \
   > "$SECURE_DIR/local-before-fetch.tsv"
@@ -97,6 +102,7 @@ git bundle create "$SECURE_DIR/pre-rewrite.bundle" --all \
   > "$SECURE_DIR/backup.log" 2>&1
 git bundle verify "$SECURE_DIR/pre-rewrite.bundle" \
   > "$SECURE_DIR/backup-verify.log" 2>&1
+# 此 bundle 是获取远端引用后的完整快照；保留它和 pre-fetch-local.bundle。
 chmod 600 "$SECURE_DIR"/*
 ```
 

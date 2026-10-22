@@ -53,6 +53,7 @@ test('unsafe configuration fails closed before any transport', async () => {
     undefined, '', '   ', 'short-public-sample', 'a'.repeat(64),
     'example-'.repeat(8), 'change_me-'.repeat(8), 'replace-me-'.repeat(8),
     'your-secret-'.repeat(8), 'placeholder-'.repeat(8), `<${key}>`, ` ${key}`,
+    `${key}!`, `${key}:`, `${key.slice(0, 16)} ${key.slice(16)}`,
   ];
   for (const value of defaults) {
     let sent = false;
@@ -60,6 +61,7 @@ test('unsafe configuration fails closed before any transport', async () => {
       SEND_API_KEY: value, EMAIL: { send() { sent = true; } },
     });
     assert.equal(response.status, 500);
+    assert.equal((await response.json()).error.code, 'server_misconfigured');
     assert.equal(sent, false);
   }
 });
@@ -67,14 +69,16 @@ test('unsafe configuration fails closed before any transport', async () => {
 test('only a valid token sends; no Origin is required', async () => {
   const { app } = await worker();
   let sends = 0;
-  const env = { SEND_API_KEY: key, DEFAULT_FROM: 'hello@ashesborn.cloud',
+  const acceptedCharsetKey = 'Aa0._~+/-'.repeat(4);
+  const env = { SEND_API_KEY: acceptedCharsetKey, DEFAULT_FROM: 'hello@ashesborn.cloud',
     EMAIL: { async send() { sends++; return { messageId: marker }; } } };
-  for (const header of [null, '', 'Bearer', 'Basic abc', bearer(key) + ' extra', bearer('wrong'),
-    bearer(key.slice(1)), 'Bearer\t' + key]) {
+  for (const header of [null, '', 'Bearer', 'Basic abc', bearer(acceptedCharsetKey) + ' extra', bearer('wrong'),
+    bearer(acceptedCharsetKey.slice(1)), 'Bearer\t' + acceptedCharsetKey]) {
     assert.equal((await app.fetch(request(header), env)).status, 401);
   }
   assert.equal(sends, 0);
-  for (const header of [bearer(key), bearer(key, 'bearer'), 'BEARER' + '  ' + key]) {
+  for (const header of [bearer(acceptedCharsetKey), bearer(acceptedCharsetKey, 'bearer'),
+    'BEARER' + '  ' + acceptedCharsetKey]) {
     const response = await app.fetch(request(header), env);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { success: true, via: 'binding' });
