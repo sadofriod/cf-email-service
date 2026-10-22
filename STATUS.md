@@ -25,6 +25,7 @@
 - 发现的是潜在披露路径，不是已证明令牌泄露：未知上游错误、供应商结果和主题日志。现仅输出固定白名单错误和安全状态；同时升级与 SMTP 凭证披露风险相关的 Nodemailer，安装后 `npm audit` 报告零告警。
 - 9 项模拟传输回归、类型检查、部署 dry-run 已通过；原生 `crypto.subtle.timingSafeEqual` 经官方文档、Workers 类型及禁用出站网络的本地 Workers 运行时验证。没有生产发送、部署或供应商凭证操作。
 - GitHub Secret Scanning alerts API 返回 403（集成无权限）；不能据此宣称无平台告警。扫描器的格式/熵规则可能漏报，结果也不覆盖后续推送。
+- CodeQL 对 JavaScript 和 Actions 报告零告警。自动代码审查因模型配置错误未能运行，补充独立只读审查未发现重大问题。新增 GitHub 扫描工作流为 `action_required`、尚未运行任何 job，需维护者批准后核验；不能将本地扫描当作远端 CI 已通过。
 - **远端历史重写：未执行。供应商凭证撤销/轮换：未执行，无供应商访问权限。** 所选运维信息仍存在于旧提交中；本 PR 合并不等于历史清理完成。维护者须按下述流程协调执行并复核。若确认真实凭证泄露，应先撤销/轮换，再处理历史。
 
 复核命令（在已获取全部引用的隔离完整副本运行，扫描器必须为已校验的固定版本；不得打印原始命中）：
@@ -55,6 +56,8 @@ gitleaks stdin --redact=100 --no-banner < package-lock.json
 使用**已有的隔离完整 bare 克隆**（非浅克隆、非 partial clone、非共享对象库），确认所有者授权。
 维护机须已安装审核过且支持 `--sensitive-data-removal` 的 `git-filter-repo` 和既有秘密扫描器。
 以下为 Bash；关闭 shell 跟踪、终端录屏及敏感内容日志，绝不打印敏感值。
+各步骤在同一受控 Bash 会话、同一个隔离 bare 副本执行，保留 `SECURE_DIR` 和 `REPO_DIR`；
+若中断会话，须重新核对并恢复这两个绝对路径。每段均启用失败即停止，任何检查失败都不得跳过。
 
 ```bash
 set -euo pipefail
@@ -107,6 +110,11 @@ chmod 600 "$SECURE_DIR"/*
 审计产物只存于受限目录，不在 PR、终端或 CI 日志中回显：
 
 ```bash
+set -euo pipefail
+set +x
+umask 077
+: "${SECURE_DIR:?先恢复已审核的受限目录绝对路径}" "${REPO_DIR:?先恢复已审核的隔离副本绝对路径}"
+test "$(realpath "$(git rev-parse --absolute-git-dir)")" = "$REPO_DIR"
 git log --all --format=raw > "$SECURE_DIR/commit-metadata-before.txt"
 git for-each-ref --format='%(refname)%00%(objecttype)%00%(contents)%00%(taggername)%00%(taggeremail)' \
   > "$SECURE_DIR/ref-metadata-before.txt"
@@ -129,9 +137,21 @@ chmod 600 "$SECURE_DIR"/*
 ### 3. 重写并复核所有引用
 
 确认隔离副本、可恢复备份和规则审核完成后执行：
+`--force` 有意绕过 fresh-clone 安全检查，仅限已备份且已审核的可丢弃隔离副本；
+`--no-fetch` 禁止工具隐式抓取/剪枝，确保重写的正是已审计快照，不是后续远端状态。
 
 ```bash
-git filter-repo --force --sensitive-data-removal \
+set -euo pipefail
+set +x
+umask 077
+: "${SECURE_DIR:?先恢复已审核的受限目录绝对路径}" "${REPO_DIR:?先恢复已审核的隔离副本绝对路径}"
+test "$(realpath "$(git rev-parse --absolute-git-dir)")" = "$REPO_DIR"
+test "$(git remote get-url origin)" = "$(cat "$SECURE_DIR/origin.url")"
+git ls-remote --refs origin > "$SECURE_DIR/remote-pre-rewrite.tsv"
+LC_ALL=C sort "$SECURE_DIR/remote-before.tsv" > "$SECURE_DIR/expected-sorted.tsv"
+LC_ALL=C sort "$SECURE_DIR/remote-pre-rewrite.tsv" > "$SECURE_DIR/current-sorted.tsv"
+cmp --silent "$SECURE_DIR/expected-sorted.tsv" "$SECURE_DIR/current-sorted.tsv"
+git filter-repo --force --sensitive-data-removal --no-fetch \
   --replace-text "$SECURE_DIR/replace-text.txt" \
   --replace-message "$SECURE_DIR/replace-message.txt" \
   > "$SECURE_DIR/rewrite.log" 2>&1
@@ -157,14 +177,22 @@ notes 等其他可写命名空间须另行审批并使用同样的精确租约�
 遗漏可写引用可能保留旧内容。先核对 refs-after 和预期删除项，不能擅自把缺失引用当成删除。
 
 ```bash
+set -euo pipefail
+set +x
+umask 077
+: "${SECURE_DIR:?先恢复已审核的受限目录绝对路径}" "${REPO_DIR:?先恢复已审核的隔离副本绝对路径}"
+test "$(realpath "$(git rev-parse --absolute-git-dir)")" = "$REPO_DIR"
 # 用受保护编辑器制作并审核 push-approved.tsv 后运行
 chmod 600 "$SECURE_DIR/push-approved.tsv"
 if ! git remote get-url origin >/dev/null 2>&1; then
   git remote add origin "$(cat "$SECURE_DIR/origin.url")"
 fi
-# 已存在 origin 时，先私下核对其与保存的授权目标一致
+test "$(git remote get-url origin)" = "$(cat "$SECURE_DIR/origin.url")"
 git ls-remote --refs origin > "$SECURE_DIR/remote-pre-push.tsv"
-# 人工比对远端前后清单；有任何并发写入就停止
+LC_ALL=C sort "$SECURE_DIR/remote-before.tsv" > "$SECURE_DIR/expected-sorted.tsv"
+LC_ALL=C sort "$SECURE_DIR/remote-pre-push.tsv" > "$SECURE_DIR/current-sorted.tsv"
+cmp --silent "$SECURE_DIR/expected-sorted.tsv" "$SECURE_DIR/current-sorted.tsv"
+# 同时人工核对全引用清单；有任何并发写入就停止，租约仍必须保留。
 
 leases=()
 refspecs=()
