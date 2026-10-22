@@ -64,3 +64,9 @@
 - 预览：`node scripts/preview-templates.mjs` → `preview/*.html|.txt`（11 组，黑名单词命中 0，text 版本全部非空）。
 - 实测：`POST /send` + `template=cold-outreach` → `{"success":true,"via":"binding","messageId":"<KKtS8OTwoJ0rLNhDjKLaaKhZDF2BIKKFOJ63@ashesborn.cloud>"}`。
 - 环境坑：OpenCode 跑在宿主机（macOS），它执行 `npm install` 会把 `node_modules` 换成 darwin 二进制，容器里再跑 wrangler 会报 `workerd ... another platform`。修法：容器内 `rm -rf node_modules && npm install` 重装。派活给 OpenCode 时明确叫它**不要**跑 `npm install` / `wrangler`。
+
+### 模板层收尾修复（同日）
+- HTML 段内换行丢失 → `paragraph()` 现在先转义再 `\n → <br>` 再链接化，行式内容（ops-digest 的任务条、report-delivery 的交付清单）恢复正常分行。
+- 中文模板 `lang="zh-CN"` + 字体栈加入 PingFang SC / Hiragino Sans GB / Microsoft YaHei / Noto Sans CJK SC，避免拉丁字体渲染中文。
+- 链接样式统一 `color:#111;text-decoration:underline`（不再用默认蓝色）。
+- 最终版本：`975a9465-a21a-4dbe-82f2-af729dcba722`。
