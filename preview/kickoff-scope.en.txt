@@ -1,0 +1,13 @@
+Example Client,
+
+Scope: public filings and regulatory documents on Example Cell Co. for 2025-01 to 2026-06. Delivery is 2026-10-29.
+
+Please confirm:
+1. Which entity is the decision target?
+2. Should subsidiaries be included?
+3. Which jurisdiction matters most?
+
+No reply to the above will not delay kickoff.
+
+Sample Sender
+Supply-chain research · example.com

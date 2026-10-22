@@ -13,6 +13,8 @@
 import type { AddressLike, Env, SendRequest } from './types';
 import { estimateSize, MAX_MESSAGE_BYTES, validateSendRequest } from './lib/validate';
 import { mapBindingError, mapRestError, type MappedError } from './lib/errors';
+import { getTemplate, listTemplates } from './templates';
+import type { TemplateDefinition } from './templates/types';
 
 const REST_ENDPOINT = (accountId: string) =>
   `https://api.cloudflare.com/client/v4/accounts/${accountId}/email/sending/send`;
@@ -58,6 +60,17 @@ function authorized(request: Request, env: Env): 'ok' | 'missing_config' | 'unau
   const header = request.headers.get('Authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   return safeEqual(token, env.SEND_API_KEY) ? 'ok' : 'unauthorized';
+}
+
+/** 模板接口与发送接口共用的 Bearer 鉴权响应。 */
+function requireAuthorization(request: Request, env: Env, cors: Record<string, string>): Response | null {
+  const auth = authorized(request, env);
+  if (auth === 'missing_config') {
+    return fail({ status: 500, code: 'server_misconfigured', message: 'SEND_API_KEY is not configured', hint: 'wrangler secret put SEND_API_KEY' }, cors);
+  }
+  return auth === 'unauthorized'
+    ? fail({ status: 401, code: 'unauthorized', message: 'missing or invalid bearer token' }, cors)
+    : null;
 }
 
 /** 结构化发送日志：不打印密钥与正文 */
@@ -131,16 +144,8 @@ async function sendViaRest(env: Env, msg: SendRequest): Promise<SendOutcome> {
 
 async function handleSend(request: Request, env: Env): Promise<Response> {
   const cors = corsHeaders(request, env);
-  const auth = authorized(request, env);
-  if (auth === 'missing_config') {
-    return fail(
-      { status: 500, code: 'server_misconfigured', message: 'SEND_API_KEY is not configured', hint: 'wrangler secret put SEND_API_KEY' },
-      cors,
-    );
-  }
-  if (auth === 'unauthorized') {
-    return fail({ status: 401, code: 'unauthorized', message: 'missing or invalid bearer token' }, cors);
-  }
+  const authFailure = requireAuthorization(request, env, cors);
+  if (authFailure) return authFailure;
 
   let body: unknown;
   try {
@@ -149,7 +154,10 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
     return fail({ status: 400, code: 'invalid_json', message: 'request body must be valid JSON' }, cors);
   }
 
-  const validated = validateSendRequest(body, env.DEFAULT_FROM);
+  const templateResult = renderTemplateRequest(body);
+  if (!templateResult.ok) return json(templateResult.error, templateResult.status, cors);
+
+  const validated = validateSendRequest(templateResult.value, env.DEFAULT_FROM);
   if (!validated.ok) {
     return fail({ status: 400, code: 'validation_error', message: validated.error }, cors);
   }
@@ -213,6 +221,58 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
   }
 }
 
+type TemplateRequestResult =
+  | { ok: true; value: unknown }
+  | { ok: false; status: number; error: { code: string; field?: string } };
+
+function isMissingField(data: Record<string, unknown>, field: string): boolean {
+  const value = data[field];
+  return value === undefined || value === null || (typeof value === 'string' && !value.trim());
+}
+
+/** 在标准发送校验前，把模板与原请求的传输字段合并。 */
+function renderTemplateRequest(body: unknown): TemplateRequestResult {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: true, value: body };
+  const request = body as Record<string, unknown>;
+  if (typeof request.template !== 'string') return { ok: true, value: body };
+
+  const template = getTemplate(request.template);
+  if (!template) return { ok: false, status: 404, error: { code: 'template_not_found' } };
+  const data = request.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { ok: false, status: 400, error: { code: 'template_field_missing', field: 'data' } };
+  }
+  const fields = data as Record<string, unknown>;
+  for (const field of template.requiredFields) {
+    if (isMissingField(fields, field)) return { ok: false, status: 400, error: { code: 'template_field_missing', field } };
+  }
+  if (template.id === 'kickoff-scope' && (!Array.isArray(fields.threeQuestions) || fields.threeQuestions.length !== 3)) {
+    return { ok: false, status: 400, error: { code: 'template_field_missing', field: 'threeQuestions' } };
+  }
+  const rendered = template.render(fields);
+  return { ok: true, value: { ...request, to: request.to ?? fields.to, subject: rendered.subject, html: rendered.html, text: rendered.text } };
+}
+
+function templateSummary(template: TemplateDefinition): Omit<TemplateDefinition, 'render' | 'sample' | 'optionalFields'> {
+  return { id: template.id, description: template.description, locales: template.locales, requiredFields: template.requiredFields };
+}
+
+async function handlePreview(request: Request, env: Env, id: string): Promise<Response> {
+  const cors = corsHeaders(request, env);
+  const authFailure = requireAuthorization(request, env, cors);
+  if (authFailure) return authFailure;
+  const template = getTemplate(id);
+  if (!template) return json({ code: 'template_not_found' }, 404, cors);
+  let body: unknown;
+  try { body = await request.json(); } catch { return fail({ status: 400, code: 'invalid_json', message: 'request body must be valid JSON' }, cors); }
+  const data = body && typeof body === 'object' && !Array.isArray(body) && 'data' in body
+    ? (body as Record<string, unknown>).data : body;
+  const result = renderTemplateRequest({ template: id, data });
+  if (!result.ok) return json(result.error, result.status, cors);
+  const rendered = template.render(data as Record<string, unknown>);
+  return json(rendered, 200, cors);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -237,6 +297,17 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/send') {
       return handleSend(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/templates') {
+      const authFailure = requireAuthorization(request, env, cors);
+      if (authFailure) return authFailure;
+      return json({ templates: listTemplates().map(templateSummary) }, 200, cors);
+    }
+
+    const previewMatch = url.pathname.match(/^\/templates\/([^/]+)\/preview$/);
+    if (request.method === 'POST' && previewMatch) {
+      return handlePreview(request, env, decodeURIComponent(previewMatch[1] ?? ''));
     }
 
     return json({ success: false, error: { code: 'not_found', message: `no route for ${request.method} ${url.pathname}` } }, 404, cors);

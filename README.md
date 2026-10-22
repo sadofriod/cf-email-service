@@ -113,6 +113,19 @@ curl -X POST https://cf-email-service.<子域>.workers.dev/send \
 
 响应里的 `via` 告诉你走的是 binding 还是 REST 兜底；失败时 `error.hint` 会直接指向修复动作。
 
+## 邮件模板
+
+模板接口同样使用 `Bearer SEND_API_KEY`：`GET /templates` 列出模板，`POST /templates/:id/preview` 仅渲染不发送，`POST /send` 传入 `template` 和 `data` 会渲染后走同一发送校验链路。完整字段、主题规则和禁忌见 [docs/EMAIL-TEMPLATES.md](docs/EMAIL-TEMPLATES.md)。
+
+- `cold-outreach`：带触发事件、页码和两页样例的首封冷邮件。
+- `followup-new-fact`：第 3 天补充新事实的跟进。
+- `followup-close`：第 10 天明确结束的收尾邮件。
+- `sample-delivery`：对方索取后交付两页样例。
+- `report-delivery`：完整报告和证据文件包交付。
+- `kickoff-scope`：付款后的范围和问题确认。
+- `directory-application`：MCP 目录或注册表收录申请。
+- `ops-digest`：内部巡检任务与阻塞摘要。
+
 ### 2. REST API（任何后端）
 
 ```bash

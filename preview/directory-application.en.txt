@@ -1,0 +1,9 @@
+Jordan,
+
+I'd like to submit a TypeScript MCP server to Example MCP Directory: https://example.com/repo. It exposes 5 MCP tools and self-hosts with docker compose up -d. Host example: https://example.com/host.
+
+Fact: one host returned 10 strict hits. Limitation: 12 questions / 10 strict hits is project self-testing, not a cross-project comparison.
+
+One question: can a hosted remote entry be listed without a Dockerfile?
+
+Sample Sender

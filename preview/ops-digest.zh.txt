@@ -1,0 +1,5 @@
+状态：ACTIVE。3 项任务推进中
+模板路由：src/index.ts 14:30；阻塞：无
+文档：docs/EMAIL-TEMPLATES.md 14:35；阻塞：无
+模板预览：preview/*.html 14:41；阻塞：无
+需决策/阻塞：无

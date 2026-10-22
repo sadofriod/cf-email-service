@@ -53,3 +53,14 @@
 - 提升后有一小段 `E_EMAIL_SENDING_NOT_READY`（开通窗口），约 3–5 分钟后消失。
 - **任意收件人投递成功**：`to=justlikeashes+cf-arbitrary@gmail.com`（未验证地址）→
   `{"success":true,"via":"binding","messageId":"<sHevTkkIAlfbO7NtpMLOMgzlkevDNX7FPUds@ashesborn.cloud>"}`。
+
+---
+
+## 邮件模板层（2026-10-22 追加）
+
+- 8 个模板，11 个渲染组合（cold/followup×3 支持 en+zh，其余 en，ops-digest zh），风格对齐 `graphrag-promo/mvp/OUTREACH.md`（先给证据再谈钱、每条结论带页码、收尾给退出选项）与 `REPORT-TEMPLATE.md`（≤40 字结论、禁止形容词、固定免责声明）。
+- 新路由：`GET /templates`、`POST /templates/:id/preview`（都需 Bearer）；`POST /send` 支持 `{template, data, to}`，复用原校验/体积/binding 链路；缺字段 → 400 `template_field_missing`，未知模板 → 404 `template_not_found`。
+- 模板→任务映射：cold-outreach / followup-new-fact / followup-close → SOUL 主线1 冷触达；sample-delivery / report-delivery / kickoff-scope → 主线1 Concierge MVP 交付；directory-application → 主线3 MCP 目录收录；ops-digest → 内部巡检邮件版。
+- 预览：`node scripts/preview-templates.mjs` → `preview/*.html|.txt`（11 组，黑名单词命中 0，text 版本全部非空）。
+- 实测：`POST /send` + `template=cold-outreach` → `{"success":true,"via":"binding","messageId":"<KKtS8OTwoJ0rLNhDjKLaaKhZDF2BIKKFOJ63@ashesborn.cloud>"}`。
+- 环境坑：OpenCode 跑在宿主机（macOS），它执行 `npm install` 会把 `node_modules` 换成 darwin 二进制，容器里再跑 wrangler 会报 `workerd ... another platform`。修法：容器内 `rm -rf node_modules && npm install` 重装。派活给 OpenCode 时明确叫它**不要**跑 `npm install` / `wrangler`。
