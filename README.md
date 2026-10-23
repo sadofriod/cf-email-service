@@ -21,6 +21,8 @@ ashesborn.cloud 的事务性邮件发送服务，跑在 Cloudflare Workers 上�
                         └─ 退信回流到 cf-bounce.ashesborn.cloud
 ```
 
+macOS 客户端集成见 [mac/README.md](mac/README.md)。
+
 ## 当前账号状态（2026-10-22 实测）
 
 | 项目 | 状态 |

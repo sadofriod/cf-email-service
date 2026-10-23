@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cloudmail/config"
+
+usage() {
+  cat <<'EOF'
+Usage: cloudmail -t to@x.com -s "subject" [-m text|--html file] [-F from] [-T template] [-D domain] [-L locale] [--data json] [--json]
+
+Send through the Cloudflare Email Worker. Without -m, read the text body from stdin.
+
+Options:
+  -t, --to ADDRESS       Recipient address (required)
+  -s, --subject SUBJECT  Subject for a non-template message (required)
+  -m, --message TEXT     Plain-text body
+      --html FILE        HTML body read from FILE
+  -F, --from ADDRESS     Sender address (defaults to FROM in config)
+  -T, --template ID      Send a Worker template
+  -D, --domain ID        Template domain
+  -L, --locale LOCALE    Template locale
+      --data JSON        Template data as a JSON object
+      --json             Print the complete JSON response
+  -h, --help             Show this help
+EOF
+}
+
+die() {
+  printf 'cloudmail: %s\n' "$*" >&2
+  exit 1
+}
+
+require_value() {
+  local option="$1"
+  [[ $# -ge 2 ]] || die "$option requires a value"
+}
+
+TO=""
+SUBJECT=""
+MESSAGE=""
+HTML_FILE=""
+FROM=""
+TEMPLATE=""
+DOMAIN=""
+LOCALE=""
+DATA='{}'
+PRINT_JSON=false
+READ_STDIN=true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -t|--to) require_value "$1" "$@"; TO="$2"; shift 2 ;;
+    -s|--subject) require_value "$1" "$@"; SUBJECT="$2"; shift 2 ;;
+    -m|--message) require_value "$1" "$@"; MESSAGE="$2"; READ_STDIN=false; shift 2 ;;
+    --html) require_value "$1" "$@"; HTML_FILE="$2"; READ_STDIN=false; shift 2 ;;
+    -F|--from) require_value "$1" "$@"; FROM="$2"; shift 2 ;;
+    -T|--template) require_value "$1" "$@"; TEMPLATE="$2"; shift 2 ;;
+    -D|--domain) require_value "$1" "$@"; DOMAIN="$2"; shift 2 ;;
+    -L|--locale) require_value "$1" "$@"; LOCALE="$2"; shift 2 ;;
+    --data) require_value "$1" "$@"; DATA="$2"; shift 2 ;;
+    --json) PRINT_JSON=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown option: $1 (use --help)" ;;
+  esac
+done
+
+[[ -n "$TO" ]] || die "recipient is required (-t)"
+[[ -z "$HTML_FILE" || -z "$MESSAGE" ]] || die "use either -m or --html, not both"
+[[ -z "$HTML_FILE" || -r "$HTML_FILE" ]] || die "cannot read HTML file: $HTML_FILE"
+
+if [[ "$READ_STDIN" == true ]]; then
+  MESSAGE="$(cat)"
+fi
+
+if [[ -z "$TEMPLATE" && -z "$SUBJECT" ]]; then
+  die "subject is required (-s) unless a template is selected (-T)"
+fi
+
+CLI_FROM="$FROM"
+ENV_BASE_URL="${BASE_URL:-}"
+ENV_SEND_API_KEY="${SEND_API_KEY:-}"
+ENV_FROM="${FROM:-}"
+if [[ -r "$CONFIG_FILE" ]]; then
+  # Read only the known keys; never execute configuration as shell code.
+  while IFS='=' read -r key value || [[ -n "$key" ]]; do
+    case "$key" in
+      BASE_URL|SEND_API_KEY|FROM) printf -v "$key" '%s' "$value" ;;
+    esac
+  done < "$CONFIG_FILE"
+fi
+
+BASE_URL="${ENV_BASE_URL:-${BASE_URL:-}}"
+SEND_API_KEY="${ENV_SEND_API_KEY:-${SEND_API_KEY:-}}"
+FROM="${CLI_FROM:-${ENV_FROM:-${FROM:-}}}"
+[[ -n "$BASE_URL" && -n "$SEND_API_KEY" && -n "$FROM" ]] || die "missing BASE_URL, SEND_API_KEY, or FROM; run mac/install.sh to create $CONFIG_FILE"
+
+if [[ -n "$HTML_FILE" ]]; then
+  HTML="$(cat "$HTML_FILE")"
+else
+  HTML=""
+fi
+
+if command -v jq >/dev/null 2>&1; then
+  jq -e . >/dev/null <<<"$DATA" || die "--data must be valid JSON"
+  payload="$(jq -cn \
+    --arg to "$TO" \
+    --arg from "$FROM" \
+    --arg subject "$SUBJECT" \
+    --arg text "$MESSAGE" \
+    --arg html "$HTML" \
+    --arg template "$TEMPLATE" \
+    --arg domain "$DOMAIN" \
+    --arg locale "$LOCALE" \
+    --argjson data "$DATA" \
+    '{to: $to, from: $from} +
+     (if $subject == "" then {} else {subject: $subject} end) +
+     (if $text == "" then {} else {text: $text} end) +
+     (if $html == "" then {} else {html: $html} end) +
+     (if $template == "" then {} else {template: $template} end) +
+     (if $domain == "" then {} else {domain: $domain} end) +
+     (if $locale == "" then {} else {locale: $locale} end) +
+     (if $template == "" then {} else {data: $data} end)')"
+elif command -v python3 >/dev/null 2>&1; then
+  payload="$(TO="$TO" FROM="$FROM" SUBJECT="$SUBJECT" MESSAGE="$MESSAGE" HTML="$HTML" TEMPLATE="$TEMPLATE" DOMAIN="$DOMAIN" LOCALE="$LOCALE" DATA="$DATA" python3 -c '
+import json, os, sys
+try:
+    data = json.loads(os.environ["DATA"])
+except json.JSONDecodeError as error:
+    sys.exit("cloudmail: --data must be valid JSON: " + str(error))
+payload = {"to": os.environ["TO"], "from": os.environ["FROM"]}
+for key, env_key in (("subject", "SUBJECT"), ("text", "MESSAGE"), ("html", "HTML"), ("template", "TEMPLATE"), ("domain", "DOMAIN"), ("locale", "LOCALE")):
+    if os.environ[env_key]:
+        payload[key] = os.environ[env_key]
+if os.environ["TEMPLATE"]:
+    payload["data"] = data
+print(json.dumps(payload, ensure_ascii=True))
+')"
+else
+  die "jq or python3 is required to safely generate JSON"
+fi
+
+response_file="$(mktemp "${TMPDIR:-/tmp}/cloudmail.XXXXXX")"
+trap 'rm -f "$response_file"' EXIT
+http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' --max-time 60 \
+  --request POST "${BASE_URL%/}/send" \
+  --header "Authorization: Bearer $SEND_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data "$payload")" || die "request failed"
+response="$(cat "$response_file")"
+
+if [[ ! "$http_code" =~ ^2 ]]; then
+  if command -v jq >/dev/null 2>&1; then
+    error_detail="$(jq -r '(.error.code // "request_failed") as $code | (.error.hint // .error.message // "") as $hint | if $hint == "" then $code else $code + ": " + $hint end' <<<"$response" 2>/dev/null || true)"
+  elif command -v python3 >/dev/null 2>&1; then
+    error_detail="$(RESPONSE="$response" python3 -c '
+import json, os
+try:
+    error = json.loads(os.environ["RESPONSE"]).get("error", {})
+    code = error.get("code", "request_failed")
+    hint = error.get("hint") or error.get("message") or ""
+    print(code if not hint else f"{code}: {hint}")
+except (json.JSONDecodeError, AttributeError):
+    print("request_failed")
+')"
+  else
+    error_detail="request_failed"
+  fi
+  printf 'cloudmail: HTTP %s: %s\n' "$http_code" "$error_detail" >&2
+  exit 1
+fi
+
+if [[ "$PRINT_JSON" == true ]]; then
+  printf '%s\n' "$response"
+elif command -v jq >/dev/null 2>&1; then
+  printf 'sent %s via %s\n' "$(jq -r '.messageId // "unknown"' <<<"$response")" "$(jq -r '.via // "unknown"' <<<"$response")"
+elif command -v python3 >/dev/null 2>&1; then
+  RESPONSE="$response" python3 -c 'import json, os; data = json.loads(os.environ["RESPONSE"]); print("sent {} via {}".format(data.get("messageId", "unknown"), data.get("via", "unknown")))'
+fi
