@@ -9,6 +9,7 @@
   // Email Sending binding. `remote: true` lets `wrangler dev` talk to the real
   // Email Service instead of the local simulator.
   "send_email": [{ "name": "EMAIL", "remote": true }],
+  "kv_namespaces": [{ "binding": "OUTBOX", "id": "e7948207fc33438cb97084c05bdb0a94" }],
   "vars": {
     "DEFAULT_FROM": "hello@ashesborn.cloud",
     "ALLOWED_ORIGINS": "https://ashesborn.cloud"

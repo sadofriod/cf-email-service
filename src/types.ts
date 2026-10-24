@@ -60,6 +60,8 @@ export interface Env {
   /** REST 兜底：账号 ID 与带 Email Sending: Edit 权限的 token */
   CF_ACCOUNT_ID?: string;
   CF_API_TOKEN?: string;
+  /** 已发送邮件审计记录；未绑定时发信仍可正常工作 */
+  OUTBOX?: KVNamespace;
 }
 
 /** POST /send 的请求体 */

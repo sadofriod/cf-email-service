@@ -80,3 +80,18 @@
 - 预览：`node scripts/preview-templates.mjs` → 27 组（冷邮件 5 领域 × 2 语言 + 其余模板），`preview/index.html` 按领域分组。
 - 实测发送（非默认领域）：web3 en `<6NgdWn47H0MYxI2kCD4dZHf5rmjg5zgWyBT0@ashesborn.cloud>`、agent-infra zh `<cJdAtC854op2o36Bk90diTAXmRfRAN1ABaV1@ashesborn.cloud>`。
 - 最终版本：`18f72d71-d955-4215-9fb9-9cae6a2887f9`，包体 51.20 KiB / gzip 15.09 KiB。
+
+## Outbox（已发送邮件查看，2026-10-24）
+
+- 存储：KV `cf-email-outbox`（id `e7948207fc33438cb97084c05bdb0a94`），binding `OUTBOX`。
+- 键方案：元数据 `m1:<9999999999999-ts 补零 13 位>:<id>`，正文 `b1:<同>:<id>`；字典序升序 == 时间倒序，`limit` 截断后仍是最新的一页。元数据留 90 天，正文留 30 天（正文超 512 KiB 截断并标 `bodyTruncated`）。
+- 路由：`GET /outbox`（HTML 列表，含状态/收件人/主题/模板·领域/via/错误码/messageId）、`GET /outbox/<key>`（详情 + iframe 正文 + `?format=text|raw`）、`GET /outbox.json`。鉴权：`Authorization: Bearer` 或 `?token=`，响应带 `Referrer-Policy: no-referrer`。
+- 埋点：成功 + 失败（未知领域、校验失败、体积超限、投递报错）都记；401 不记；埋点失败不影响发信。
+- 实测：`limit=1` 返回最新一封（键序修复前后行为不同，修复后正确）；详情页 iframe 高 422px，正文可读。
+- 已知边界：直接走 SMTP（smtp.mx.cloudflare.net）发送不经过 Worker，不会进 outbox；投递结果/退信看 Cloudflare Activity log。旧的 `m:` 前缀测试记录不再展示。
+
+## macOS 宿主集成（已安装并验证）
+
+- 宿主机 macOS 26.6.2 / arm64，`python3` 与 `jq` 均存在。
+- `~/bin/cloudmail` 已安装；`~/.config/cloudmail/config`（600，含 BASE_URL/SEND_API_KEY/FROM）。
+- 真实发信：`printf ... | ~/bin/cloudmail -t justlikeashes@gmail.com -s "macOS cloudmail 集成自检"` → `<i6s4sj3IeIHVITNmPPauWRNANFC6v9PwuvxX@ashesborn.cloud>`。

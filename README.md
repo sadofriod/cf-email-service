@@ -23,6 +23,8 @@ ashesborn.cloud 的事务性邮件发送服务，跑在 Cloudflare Workers 上�
 
 macOS 客户端集成见 [mac/README.md](mac/README.md)。
 
+已发送邮件查看入口与保留期说明见 [docs/OUTBOX.md](docs/OUTBOX.md)。
+
 ## 当前账号状态（2026-10-22 实测）
 
 | 项目 | 状态 |

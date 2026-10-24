@@ -81,6 +81,8 @@ curl --request POST 'https://cf-email-service.next-blog.workers.dev/send' \
 ```bash
 bash mac/install.sh
 cloudmail -t a@b.com -s "hi" -m "body"
+# 发完后在浏览器打开已发送列表（将 token 换成自己的 SEND_API_KEY）
+open 'https://cf-email-service.next-blog.workers.dev/outbox?token=<SEND_API_KEY>'
 ```
 
 也可以把剪贴板或任意标准输入作为正文：
